@@ -36,10 +36,14 @@
 ### Installation
 
 ```bash
-# Backend 의존성 설치
+# 저장소 클론
+git clone https://github.com/karrdy89/keep_vibing.git
+cd keep_vibing
+
+# Backend 의존성 설치 (FastAPI, uvicorn, PyJWT, bcrypt 등)
 uv sync
 
-# Frontend 의존성 설치
+# Frontend 의존성 설치 (React, Monaco Editor, xterm.js, marked 등)
 cd frontend && npm install
 ```
 
