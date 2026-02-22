@@ -1,0 +1,9 @@
+.claude/
+.venv/
+notes/
+temp/
+CLAUDE.md
+.idea/
+node_modules/
+dist/
+__pycache__/
