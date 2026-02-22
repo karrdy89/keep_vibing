@@ -4,12 +4,14 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.api import router as api_router
+from backend.auth import ensure_users_file
 from backend.ws import router as ws_router
 from backend.session_manager import shutdown_all_sessions
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    ensure_users_file()
     yield
     await shutdown_all_sessions()
 

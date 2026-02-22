@@ -10,6 +10,7 @@ from winpty import PtyProcess
 @dataclass
 class Session:
     session_id: str
+    project_id: str
     directory: str
     pty_process: PtyProcess
     output_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
@@ -17,7 +18,6 @@ class Session:
     is_alive: bool = True
 
 
-registered_dirs: dict[str, str] = {}
 sessions: dict[str, Session] = {}
 
 
@@ -47,7 +47,18 @@ def _pty_reader(session: Session, loop: asyncio.AbstractEventLoop):
             break
 
 
-async def create_session(directory: str) -> str:
+def get_session_by_project(project_id: str) -> Session | None:
+    for s in sessions.values():
+        if s.project_id == project_id and s.is_alive:
+            return s
+    return None
+
+
+async def create_session(project_id: str, directory: str) -> str:
+    existing = get_session_by_project(project_id)
+    if existing:
+        return existing.session_id
+
     claude_path = _find_claude_cli()
     session_id = uuid.uuid4().hex[:12]
 
@@ -55,6 +66,7 @@ async def create_session(directory: str) -> str:
 
     session = Session(
         session_id=session_id,
+        project_id=project_id,
         directory=directory,
         pty_process=pty,
     )
@@ -91,6 +103,11 @@ async def destroy_session(session_id: str):
     if not session:
         return
     session.is_alive = False
+    # Signal any waiting read_from_session to return None
+    try:
+        session.output_queue.put_nowait(None)
+    except asyncio.QueueFull:
+        pass
     try:
         session.pty_process.terminate(force=True)
     except Exception:

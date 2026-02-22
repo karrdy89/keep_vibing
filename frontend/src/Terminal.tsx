@@ -3,14 +3,20 @@ import { Terminal as XTerm } from "@xterm/xterm";
 import { AttachAddon } from "@xterm/addon-attach";
 import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
+import type { Theme } from "./themes";
+import { getToken } from "./api";
 
 interface Props {
   sessionId: string;
+  theme: Theme;
 }
 
-export default function Terminal({ sessionId }: Props) {
+export default function Terminal({ sessionId, theme }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const termRef = useRef<XTerm | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
 
+  // Create terminal + WebSocket (only on sessionId change)
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -18,12 +24,9 @@ export default function Terminal({ sessionId }: Props) {
       cursorBlink: true,
       fontSize: 14,
       fontFamily: "'Cascadia Code', 'Consolas', 'Courier New', monospace",
-      theme: {
-        background: "#1e1e2e",
-        foreground: "#cdd6f4",
-        cursor: "#f5e0dc",
-      },
+      theme: theme.xtermTheme,
     });
+    termRef.current = term;
 
     const fitAddon = new FitAddon();
     term.loadAddon(fitAddon);
@@ -31,8 +34,10 @@ export default function Terminal({ sessionId }: Props) {
     fitAddon.fit();
 
     const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-    const wsUrl = `${protocol}//${window.location.host}/ws/${sessionId}`;
+    const token = getToken();
+    const wsUrl = `${protocol}//${window.location.host}/ws/${sessionId}?token=${token}`;
     const ws = new WebSocket(wsUrl);
+    wsRef.current = ws;
 
     ws.onopen = () => {
       const attachAddon = new AttachAddon(ws, { bidirectional: true });
@@ -43,15 +48,28 @@ export default function Terminal({ sessionId }: Props) {
       term.writeln("\r\n\x1b[31m[Session ended]\x1b[0m");
     };
 
-    const onResize = () => fitAddon.fit();
-    window.addEventListener("resize", onResize);
+    const resizeObserver = new ResizeObserver(() => {
+      fitAddon.fit();
+    });
+    resizeObserver.observe(containerRef.current);
 
     return () => {
-      window.removeEventListener("resize", onResize);
-      ws.close();
+      termRef.current = null;
+      wsRef.current = null;
+      resizeObserver.disconnect();
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
       term.dispose();
     };
-  }, [sessionId]);
+  }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  return <div ref={containerRef} style={{ width: "100%", height: "100%" }} />;
+  // Update theme without recreating terminal/WS
+  useEffect(() => {
+    if (termRef.current) {
+      termRef.current.options.theme = theme.xtermTheme;
+    }
+  }, [theme]);
+
+  return <div ref={containerRef} style={{ width: "100%", height: "100%", flex: 1, minHeight: 0 }} />;
 }

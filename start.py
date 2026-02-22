@@ -4,6 +4,7 @@ import subprocess
 import sys
 import signal
 import os
+import time
 
 ROOT = os.path.dirname(os.path.abspath(__file__))
 FRONTEND_DIR = os.path.join(ROOT, "frontend")
@@ -13,7 +14,15 @@ procs: list[subprocess.Popen] = []
 
 def cleanup(*_):
     for p in procs:
-        p.terminate()
+        try:
+            p.terminate()
+        except OSError:
+            pass
+    for p in procs:
+        try:
+            p.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            p.kill()
     sys.exit(0)
 
 
@@ -23,7 +32,7 @@ signal.signal(signal.SIGTERM, cleanup)
 if __name__ == "__main__":
     procs.append(
         subprocess.Popen(
-            ["uv", "run", "uvicorn", "backend.app:app", "--reload", "--port", "8000"],
+            ["uv", "run", "uvicorn", "backend.app:app", "--port", "8500"],
             cwd=ROOT,
         )
     )
@@ -35,12 +44,13 @@ if __name__ == "__main__":
         )
     )
 
-    print("Backend:  http://localhost:8000")
-    print("Frontend: http://localhost:5173")
-    print("Press Ctrl+C to stop.")
-
     try:
-        for p in procs:
-            p.wait()
+        while True:
+            for p in procs:
+                ret = p.poll()
+                if ret is not None:
+                    print(f"Process (pid={p.pid}) exited with code {ret}, shutting down...")
+                    cleanup()
+            time.sleep(0.5)
     except KeyboardInterrupt:
         cleanup()

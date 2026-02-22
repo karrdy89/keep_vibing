@@ -1,41 +1,36 @@
 import { useState } from "react";
+import type { Project } from "../api";
+import ProjectList from "./ProjectList";
+import FileTree from "./FileTree";
+import SettingsPanel from "./SettingsPanel";
+import AddProjectModal from "./AddProjectModal";
 
 interface Props {
   isCollapsed: boolean;
   onToggleCollapse: () => void;
-  onStartSession: (sessionId: string) => void;
+  projects: Project[];
+  activeProjectId: string | null;
+  currentThemeId: string;
+  onRefreshProjects: () => void;
+  onSelectProject: (project: Project) => void;
+  onSelectFile: (path: string) => void;
+  onChangeTheme: (themeId: string) => void;
 }
 
 export default function Sidebar({
   isCollapsed,
   onToggleCollapse,
-  onStartSession,
+  projects,
+  activeProjectId,
+  currentThemeId,
+  onRefreshProjects,
+  onSelectProject,
+  onSelectFile,
+  onChangeTheme,
 }: Props) {
-  const [directory, setDirectory] = useState("");
-  const [error, setError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function handleStartSession() {
-    setError("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/sessions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ path: directory }),
-      });
-      if (!res.ok) {
-        const data = await res.json();
-        throw new Error(data.detail || "Failed to create session");
-      }
-      const data = await res.json();
-      onStartSession(data.session_id);
-    } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : "Unknown error");
-    } finally {
-      setLoading(false);
-    }
-  }
+  const [showAddModal, setShowAddModal] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+  const activeProject = projects.find((p) => p.id === activeProjectId);
 
   return (
     <div className="sidebar">
@@ -47,29 +42,61 @@ export default function Sidebar({
         >
           {isCollapsed ? "\u25B6" : "\u25C0"}
         </button>
-        {!isCollapsed && <span className="sidebar-title">keep_vibing</span>}
+        {!isCollapsed && (
+          <>
+            <span className="sidebar-title">keep_vibing</span>
+            <button
+              className="sidebar-add-btn"
+              onClick={() => setShowAddModal(true)}
+              title="Add project"
+            >
+              +
+            </button>
+          </>
+        )}
       </div>
       {!isCollapsed && (
         <div className="sidebar-content">
-          <div className="sidebar-section">
-            <label className="sidebar-label">Project Path</label>
-            <input
-              className="sidebar-input"
-              value={directory}
-              onChange={(e) => setDirectory(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleStartSession()}
-              placeholder="C:\path\to\project"
-            />
-            <button
-              className="sidebar-button"
-              onClick={handleStartSession}
-              disabled={!directory || loading}
-            >
-              {loading ? "Starting..." : "Start Session"}
-            </button>
-            {error && <p className="error">{error}</p>}
-          </div>
+          <ProjectList
+            projects={projects}
+            activeProjectId={activeProjectId}
+            onRefresh={onRefreshProjects}
+            onSelectProject={onSelectProject}
+          />
+          {activeProject && (
+            <div className="sidebar-section file-tree-section">
+              <label className="sidebar-label">Files</label>
+              <FileTree
+                key={activeProject.id}
+                rootPath={activeProject.path}
+                onSelectFile={onSelectFile}
+              />
+            </div>
+          )}
         </div>
+      )}
+      {!isCollapsed && (
+        <div className="sidebar-footer">
+          <button
+            className="sidebar-footer-btn"
+            onClick={() => setShowSettings(true)}
+          >
+            {"\u2699"} Settings
+          </button>
+        </div>
+      )}
+      {showAddModal && (
+        <AddProjectModal
+          onClose={() => setShowAddModal(false)}
+          onAdded={onRefreshProjects}
+        />
+      )}
+      {showSettings && (
+        <SettingsPanel
+          currentThemeId={currentThemeId}
+          onChangeTheme={onChangeTheme}
+          onClose={() => setShowSettings(false)}
+        />
       )}
     </div>
   );

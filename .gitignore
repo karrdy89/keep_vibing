@@ -7,3 +7,4 @@ CLAUDE.md
 node_modules/
 dist/
 __pycache__/
+data/
