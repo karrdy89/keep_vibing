@@ -4,7 +4,7 @@ import uuid
 from dataclasses import dataclass, field
 from threading import Thread
 
-from winpty import PtyProcess
+from backend.pty_wrapper import PtyWrapper
 
 
 @dataclass
@@ -12,7 +12,7 @@ class Session:
     session_id: str
     project_id: str
     directory: str
-    pty_process: PtyProcess
+    pty_process: PtyWrapper
     output_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
     reader_thread: Thread | None = None
     is_alive: bool = True
@@ -62,7 +62,7 @@ async def create_session(project_id: str, directory: str) -> str:
     claude_path = _find_claude_cli()
     session_id = uuid.uuid4().hex[:12]
 
-    pty = PtyProcess.spawn(claude_path, cwd=directory, dimensions=(24, 120))
+    pty = PtyWrapper.spawn(claude_path, cwd=directory, dimensions=(24, 120))
 
     session = Session(
         session_id=session_id,

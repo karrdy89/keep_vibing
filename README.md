@@ -10,7 +10,7 @@
 
 | Layer | Stack |
 |-------|-------|
-| Backend | FastAPI, WebSocket, Python 3.13 |
+| Backend | FastAPI, WebSocket, Python 3.13 (Windows / macOS / Linux) |
 | Frontend | React, Vite, Monaco Editor, xterm.js |
 | Auth | JWT (bcrypt + PyJWT) |
 | Package | uv (Backend), npm (Frontend) |
@@ -33,6 +33,8 @@
 - Node.js 18+
 - [uv](https://docs.astral.sh/uv/)
 - [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+
+**지원 플랫폼**: Windows, macOS, Linux
 
 ### Installation
 
