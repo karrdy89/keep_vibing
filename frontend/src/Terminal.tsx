@@ -5,6 +5,7 @@ import { FitAddon } from "@xterm/addon-fit";
 import "@xterm/xterm/css/xterm.css";
 import type { Theme } from "./themes";
 import { getToken } from "./api";
+import { readText } from "./clipboard";
 import TerminalToolbar from "./components/TerminalToolbar";
 
 interface Props {
@@ -130,16 +131,12 @@ export default function Terminal({ sessionId, theme, onSessionEnd }: Props) {
   }, []);
 
   const handlePaste = useCallback(async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        const ws = wsRef.current;
-        if (ws && ws.readyState === WebSocket.OPEN) {
-          ws.send(text);
-        }
+    const text = await readText();
+    if (text) {
+      const ws = wsRef.current;
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(text);
       }
-    } catch {
-      // clipboard permission denied — ignore silently
     }
   }, []);
 

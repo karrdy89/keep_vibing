@@ -1,6 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import ContextMenu, { type MenuItem } from "./ContextMenu";
 import { getToken } from "../api";
+import { copyText } from "../clipboard";
 
 interface FileEntry {
   name: string;
@@ -327,7 +328,7 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
       items.push({ separator: true });
       items.push({
         label: "Copy Path",
-        onClick: () => navigator.clipboard.writeText(path),
+        onClick: () => copyText(path),
       });
     }
 
