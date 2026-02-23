@@ -436,3 +436,110 @@ async def test_rename_file_conflict(client, auth_headers, tmp_path):
         headers=auth_headers,
     )
     assert res.status_code == 409
+
+
+# --- File Copy API ---
+
+
+async def test_copy_file(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    (project_dir / "src.txt").write_text("hello")
+    dest = project_dir / "sub"
+    dest.mkdir()
+
+    res = await client.post(
+        "/api/files/copy",
+        json={"source": str(project_dir / "src.txt"), "destination": str(dest)},
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    assert (dest / "src.txt").read_text() == "hello"
+
+
+async def test_copy_directory(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    src = project_dir / "mydir"
+    src.mkdir()
+    (src / "a.txt").write_text("aaa")
+    dest = project_dir / "target"
+    dest.mkdir()
+
+    res = await client.post(
+        "/api/files/copy",
+        json={"source": str(src), "destination": str(dest)},
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    assert (dest / "mydir" / "a.txt").read_text() == "aaa"
+
+
+async def test_copy_file_name_conflict(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    (project_dir / "file.txt").write_text("original")
+    dest = project_dir / "sub"
+    dest.mkdir()
+    (dest / "file.txt").write_text("existing")
+
+    res = await client.post(
+        "/api/files/copy",
+        json={"source": str(project_dir / "file.txt"), "destination": str(dest)},
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "file (1).txt" in data["path"]
+    assert (dest / "file.txt").read_text() == "existing"
+    assert (dest / "file (1).txt").read_text() == "original"
+
+
+async def test_copy_across_projects(client, auth_headers, tmp_path):
+    proj1 = await _create_project(client, auth_headers, tmp_path, name="proj1")
+    proj2 = await _create_project(client, auth_headers, tmp_path, name="proj2")
+    (proj1 / "data.txt").write_text("cross-project")
+
+    res = await client.post(
+        "/api/files/copy",
+        json={"source": str(proj1 / "data.txt"), "destination": str(proj2)},
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    assert (proj2 / "data.txt").read_text() == "cross-project"
+
+
+async def test_copy_source_not_found(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+
+    res = await client.post(
+        "/api/files/copy",
+        json={"source": str(project_dir / "nope.txt"), "destination": str(project_dir)},
+        headers=auth_headers,
+    )
+    assert res.status_code == 404
+
+
+async def test_copy_destination_not_dir(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    (project_dir / "a.txt").write_text("a")
+    (project_dir / "b.txt").write_text("b")
+
+    res = await client.post(
+        "/api/files/copy",
+        json={"source": str(project_dir / "a.txt"), "destination": str(project_dir / "b.txt")},
+        headers=auth_headers,
+    )
+    assert res.status_code == 400
+
+
+async def test_copy_dir_into_itself(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    src = project_dir / "parent"
+    src.mkdir()
+    child = src / "child"
+    child.mkdir()
+
+    res = await client.post(
+        "/api/files/copy",
+        json={"source": str(src), "destination": str(child)},
+        headers=auth_headers,
+    )
+    assert res.status_code == 400

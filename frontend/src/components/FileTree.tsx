@@ -24,9 +24,23 @@ function authHeaders(): Record<string, string> {
   return token ? { Authorization: `Bearer ${token}` } : {};
 }
 
+type ClipboardEntry = { path: string; isDir: boolean; isCut: boolean };
+let _persistedClipboard: ClipboardEntry | null = null;
+function persistClipboard(v: ClipboardEntry | null) {
+  _persistedClipboard = v;
+}
+
 export default function FileTree({ rootPath, onSelectFile }: Props) {
   const [nodes, setNodes] = useState<TreeNode[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [clipboard, setClipboardState] = useState<ClipboardEntry | null>(
+    () => _persistedClipboard,
+  );
+
+  function setClipboard(v: ClipboardEntry | null) {
+    persistClipboard(v);
+    setClipboardState(v);
+  }
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -156,6 +170,32 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
     }
   }
 
+  async function handlePaste(destDir: string) {
+    if (!clipboard) return;
+    const res = await fetch("/api/files/copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", ...authHeaders() },
+      body: JSON.stringify({ source: clipboard.path, destination: destDir }),
+    });
+    if (!res.ok) return;
+
+    if (clipboard.isCut) {
+      const srcParent = clipboard.path.substring(
+        0,
+        clipboard.path.replace(/\\/g, "/").lastIndexOf("/"),
+      );
+      const delRes = await fetch(
+        `/api/files?path=${encodeURIComponent(clipboard.path)}`,
+        { method: "DELETE", headers: authHeaders() },
+      );
+      if (delRes.ok) {
+        setClipboard(null);
+        await refreshDir(srcParent || rootPath);
+      }
+    }
+    await refreshDir(destDir);
+  }
+
   function getContextMenuItems(): MenuItem[] {
     if (!contextMenu) return [];
     const { path, isDir } = contextMenu;
@@ -170,9 +210,23 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
         label: "New Folder",
         onClick: () => setInlineInput({ parentPath: path, type: "directory" }),
       });
+      if (clipboard) {
+        items.push({
+          label: "Paste",
+          onClick: () => handlePaste(path),
+        });
+      }
       items.push({ separator: true });
     }
 
+    items.push({
+      label: "Copy",
+      onClick: () => setClipboard({ path, isDir, isCut: false }),
+    });
+    items.push({
+      label: "Cut",
+      onClick: () => setClipboard({ path, isDir, isCut: true }),
+    });
     items.push({
       label: "Rename",
       onClick: () => {

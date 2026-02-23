@@ -307,3 +307,61 @@ async def api_rename_file(
         raise HTTPException(status_code=409, detail="Name already exists")
     os.rename(validated, new_path)
     return {"status": "renamed", "path": new_path.replace("\\", "/")}
+
+
+# --- File Copy ---
+
+
+class FileCopyRequest(BaseModel):
+    source: str
+    destination: str  # directory to paste into
+
+
+def _resolve_copy_name(dest_dir: str, name: str, is_dir: bool) -> str:
+    """Return a non-conflicting path inside dest_dir for the given name."""
+    candidate = os.path.join(dest_dir, name)
+    if not os.path.exists(candidate):
+        return candidate
+
+    stem, ext = (name, "") if is_dir else os.path.splitext(name)
+    counter = 1
+    while True:
+        new_name = f"{stem} ({counter}){ext}"
+        candidate = os.path.join(dest_dir, new_name)
+        if not os.path.exists(candidate):
+            return candidate
+        counter += 1
+
+
+@router.post("/files/copy")
+async def api_copy_file(
+    req: FileCopyRequest, _user: dict = Depends(get_current_user)
+):
+    src = _validate_file_path(req.source)
+    dest_dir = _validate_file_path(req.destination)
+
+    if not os.path.exists(src):
+        raise HTTPException(status_code=404, detail="Source not found")
+    if not os.path.isdir(dest_dir):
+        raise HTTPException(status_code=400, detail="Destination is not a directory")
+
+    # Prevent copying a directory into itself or its subdirectory
+    norm_src = os.path.normpath(src)
+    norm_dest = os.path.normpath(dest_dir)
+    if os.path.isdir(src) and (
+        norm_dest == norm_src or norm_dest.startswith(norm_src + os.sep)
+    ):
+        raise HTTPException(status_code=400, detail="Cannot copy directory into itself")
+
+    is_dir = os.path.isdir(src)
+    target = _resolve_copy_name(dest_dir, os.path.basename(src), is_dir)
+
+    try:
+        if is_dir:
+            shutil.copytree(src, target)
+        else:
+            shutil.copy2(src, target)
+    except PermissionError:
+        raise HTTPException(status_code=403, detail="Permission denied")
+
+    return {"status": "copied", "path": target.replace("\\", "/")}
