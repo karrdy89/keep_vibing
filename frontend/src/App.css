@@ -927,29 +927,77 @@ body {
 
 .terminal-toolbar {
   display: flex;
-  gap: 4px;
+  gap: 6px;
   padding: 6px 8px;
   background: var(--bg-surface);
   border-bottom: 1px solid var(--border);
-  overflow-x: auto;
   flex-shrink: 0;
+  align-items: stretch;
+}
+
+.terminal-toolbar-keys {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  flex: 1;
+  min-width: 0;
+}
+
+.terminal-toolbar-row {
+  display: flex;
+  gap: 3px;
+}
+
+.terminal-toolbar-key-end {
+  margin-left: auto;
 }
 
 .terminal-toolbar-key {
-  padding: 6px 12px;
-  min-height: 36px;
+  padding: 4px 10px;
+  height: 28px;
   border: 1px solid var(--bg-hover);
   border-radius: 6px;
   background: var(--bg-overlay);
   color: var(--fg-primary);
-  font-size: 0.75rem;
+  font-size: 0.7rem;
   font-family: monospace;
   cursor: pointer;
   white-space: nowrap;
-  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .terminal-toolbar-key:active {
+  background: var(--bg-hover);
+}
+
+.terminal-toolbar-arrows {
+  display: grid;
+  grid-template-columns: repeat(3, 32px);
+  grid-template-rows: repeat(2, 32px);
+  gap: 2px;
+  flex-shrink: 0;
+  background: var(--bg-overlay);
+  border-radius: 8px;
+  padding: 3px;
+}
+
+.terminal-toolbar-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 4px;
+  background: var(--bg-surface);
+  color: var(--fg-primary);
+  font-size: 0.7rem;
+  font-family: monospace;
+  cursor: pointer;
+  padding: 0;
+}
+
+.terminal-toolbar-arrow:active {
   background: var(--bg-hover);
 }
 
