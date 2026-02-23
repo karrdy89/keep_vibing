@@ -22,6 +22,7 @@
 - **파일 탐색기** - 트리 뷰, 파일/폴더 생성·삭제·이름변경, 컨텍스트 메뉴
 - **코드 에디터** - Monaco Editor 기반, 탭 관리, 구문 강조, Markdown/이미지 뷰어
 - **Claude Code 터미널** - claude CLI를 subprocess로 실행, stdin/stdout을 WebSocket으로 연결, 실시간 PTY 리사이즈
+- **크로스 디바이스 세션 공유** - PC에서 작업하다 모바일로 접속해도 기존 터미널 이력을 보고 이어서 작업 가능, 다중 클라이언트 동시 접속 지원
 - **모바일 지원** - 스마트폰/태블릿 반응형 레이아웃, 터치 최적화
 - **테마 설정** - 다크/라이트 등 테마 전환
 
@@ -111,7 +112,7 @@ keep_vibing/
 │   ├── api.py               # REST API 라우터
 │   ├── ws.py                # WebSocket 라우터
 │   ├── auth.py              # JWT 인증
-│   ├── session_manager.py   # Claude CLI 세션 관리
+│   ├── session_manager.py   # Claude CLI 세션 관리 (출력 버퍼링, 다중 클라이언트)
 │   ├── store.py             # 프로젝트/설정 영속 저장
 │   └── tests/               # 백엔드 테스트
 ├── frontend/
