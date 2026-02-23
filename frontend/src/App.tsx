@@ -215,10 +215,13 @@ function App() {
           <div
             key={p.session_id}
             style={{
-              display: p.session_id === sessionId ? "contents" : "none",
+              display: p.session_id === sessionId ? "flex" : "none",
+              flex: 1,
+              minHeight: 0,
+              flexDirection: "column",
             }}
           >
-            <Terminal sessionId={p.session_id!} theme={currentTheme} />
+            <Terminal sessionId={p.session_id!} theme={currentTheme} onSessionEnd={refreshProjects} />
           </div>
         ))}
       {!sessionId && (

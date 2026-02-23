@@ -10,14 +10,19 @@ import TerminalToolbar from "./components/TerminalToolbar";
 interface Props {
   sessionId: string;
   theme: Theme;
+  onSessionEnd?: () => void;
 }
 
 const RESIZE_PREFIX = "\x01RESIZE:";
 
-export default function Terminal({ sessionId, theme }: Props) {
+export default function Terminal({ sessionId, theme, onSessionEnd }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const termRef = useRef<XTerm | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
+  const onSessionEndRef = useRef(onSessionEnd);
+  useEffect(() => {
+    onSessionEndRef.current = onSessionEnd;
+  });
 
   // Create terminal + WebSocket (only on sessionId change)
   useEffect(() => {
@@ -57,6 +62,7 @@ export default function Terminal({ sessionId, theme }: Props) {
 
     ws.onclose = () => {
       term.writeln("\r\n\x1b[31m[Session ended]\x1b[0m");
+      onSessionEndRef.current?.();
     };
 
     let resizeTimer: ReturnType<typeof setTimeout> | null = null;

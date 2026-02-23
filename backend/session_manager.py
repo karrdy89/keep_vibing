@@ -1,10 +1,13 @@
 import asyncio
 import shutil
+import threading
 import uuid
 from dataclasses import dataclass, field
 from threading import Thread
 
 from backend.pty_wrapper import PtyWrapper
+
+OUTPUT_BUFFER_MAX = 100 * 1024  # 100KB
 
 
 @dataclass
@@ -13,7 +16,10 @@ class Session:
     project_id: str
     directory: str
     pty_process: PtyWrapper
-    output_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
+    output_buffer: list[str] = field(default_factory=list)
+    output_buffer_size: int = 0
+    output_queues: list[asyncio.Queue] = field(default_factory=list)
+    lock: threading.Lock = field(default_factory=threading.Lock)
     reader_thread: Thread | None = None
     is_alive: bool = True
 
@@ -30,21 +36,67 @@ def _find_claude_cli() -> str:
     return path
 
 
+def _broadcast(session: Session, data, loop: asyncio.AbstractEventLoop):
+    """Push data to all registered client queues."""
+    with session.lock:
+        queues = list(session.output_queues)
+    for q in queues:
+        asyncio.run_coroutine_threadsafe(q.put(data), loop)
+
+
 def _pty_reader(session: Session, loop: asyncio.AbstractEventLoop):
-    """Background thread: blocking read from PTY, push to async queue."""
+    """Background thread: blocking read from PTY, push to async queues."""
     while session.is_alive:
         try:
             data = session.pty_process.read()
             if data:
-                asyncio.run_coroutine_threadsafe(session.output_queue.put(data), loop)
+                with session.lock:
+                    session.output_buffer.append(data)
+                    session.output_buffer_size += len(data)
+                    while session.output_buffer_size > OUTPUT_BUFFER_MAX and session.output_buffer:
+                        removed = session.output_buffer.pop(0)
+                        session.output_buffer_size -= len(removed)
+                _broadcast(session, data, loop)
         except EOFError:
             session.is_alive = False
-            asyncio.run_coroutine_threadsafe(session.output_queue.put(None), loop)
+            _broadcast(session, None, loop)
             break
         except Exception:
             session.is_alive = False
-            asyncio.run_coroutine_threadsafe(session.output_queue.put(None), loop)
+            _broadcast(session, None, loop)
             break
+
+
+def register_client(session_id: str) -> asyncio.Queue | None:
+    """Register a new WebSocket client and return its dedicated queue."""
+    session = sessions.get(session_id)
+    if not session:
+        return None
+    q: asyncio.Queue = asyncio.Queue()
+    with session.lock:
+        session.output_queues.append(q)
+    return q
+
+
+def unregister_client(session_id: str, queue: asyncio.Queue):
+    """Remove a client queue from the session."""
+    session = sessions.get(session_id)
+    if not session:
+        return
+    with session.lock:
+        try:
+            session.output_queues.remove(queue)
+        except ValueError:
+            pass
+
+
+def get_output_buffer(session_id: str) -> str:
+    """Return buffered output history."""
+    session = sessions.get(session_id)
+    if not session:
+        return ""
+    with session.lock:
+        return "".join(session.output_buffer)
 
 
 def get_session_by_project(project_id: str) -> Session | None:
@@ -91,13 +143,6 @@ async def write_to_session(session_id: str, data: str):
     await asyncio.to_thread(session.pty_process.write, data)
 
 
-async def read_from_session(session_id: str) -> str | None:
-    session = sessions.get(session_id)
-    if not session:
-        return None
-    return await session.output_queue.get()
-
-
 def resize_session(session_id: str, rows: int, cols: int):
     session = sessions.get(session_id)
     if not session or not session.is_alive:
@@ -113,11 +158,13 @@ async def destroy_session(session_id: str):
     if not session:
         return
     session.is_alive = False
-    # Signal any waiting read_from_session to return None
-    try:
-        session.output_queue.put_nowait(None)
-    except asyncio.QueueFull:
-        pass
+    with session.lock:
+        queues = list(session.output_queues)
+    for q in queues:
+        try:
+            q.put_nowait(None)
+        except asyncio.QueueFull:
+            pass
     try:
         session.pty_process.terminate(force=True)
     except Exception:
