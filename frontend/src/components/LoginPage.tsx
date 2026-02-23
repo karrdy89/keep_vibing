@@ -56,7 +56,13 @@ export default function LoginPage({ onLogin }: Props) {
             autoComplete="current-password"
           />
         </div>
-        {error && <p className="login-error">{error}</p>}
+        {error && (
+          <p className={`login-error${error.includes("locked") ? " login-error-locked" : ""}`}>
+            {error.includes("locked")
+              ? "Account locked. Server has been shut down."
+              : error}
+          </p>
+        )}
         <button
           className="login-button"
           type="submit"

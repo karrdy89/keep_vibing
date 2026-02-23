@@ -35,6 +35,7 @@ class LoginRequest(BaseModel):
 
 @router.post("/login")
 async def api_login(req: LoginRequest) -> dict:
+    # authenticate()가 423 HTTPException을 직접 raise할 수 있음 (계정 잠금)
     user = await authenticate(req.username, req.password)
     if not user:
         raise HTTPException(status_code=401, detail="Invalid username or password")

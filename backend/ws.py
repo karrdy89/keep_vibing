@@ -3,7 +3,9 @@ import asyncio
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from backend.auth import verify_token
-from backend.session_manager import get_session, read_from_session, write_to_session
+from backend.session_manager import get_session, read_from_session, resize_session, write_to_session
+
+RESIZE_PREFIX = "\x01RESIZE:"
 
 router = APIRouter()
 
@@ -43,7 +45,15 @@ async def websocket_terminal(websocket: WebSocket, session_id: str):
         try:
             while True:
                 data = await websocket.receive_text()
-                await write_to_session(session_id, data)
+                if data.startswith(RESIZE_PREFIX):
+                    try:
+                        parts = data[len(RESIZE_PREFIX):].split(",")
+                        cols, rows = int(parts[0]), int(parts[1])
+                        resize_session(session_id, rows, cols)
+                    except (ValueError, IndexError):
+                        pass
+                else:
+                    await write_to_session(session_id, data)
         except WebSocketDisconnect:
             pass
         except Exception:

@@ -98,6 +98,16 @@ async def read_from_session(session_id: str) -> str | None:
     return await session.output_queue.get()
 
 
+def resize_session(session_id: str, rows: int, cols: int):
+    session = sessions.get(session_id)
+    if not session or not session.is_alive:
+        return
+    try:
+        session.pty_process.set_size(rows, cols)
+    except (OSError, EOFError):
+        pass
+
+
 async def destroy_session(session_id: str):
     session = sessions.pop(session_id, None)
     if not session:

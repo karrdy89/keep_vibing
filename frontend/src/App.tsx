@@ -7,6 +7,9 @@ import EditorPanel from "./components/EditorPanel";
 import SessionHeader from "./components/SessionHeader";
 import ResizeHandle from "./components/ResizeHandle";
 import LoginPage from "./components/LoginPage";
+import BottomTabBar from "./components/BottomTabBar";
+
+type MobilePanel = "files" | "editor" | "terminal";
 
 const SIDEBAR_MIN = 200;
 const SIDEBAR_MAX = 500;
@@ -18,6 +21,16 @@ const DEFAULT_SIDEBAR_WIDTH = 280;
 export interface OpenFile {
   path: string;
   name: string;
+}
+
+function useBreakpoint() {
+  const [width, setWidth] = useState(window.innerWidth);
+  useEffect(() => {
+    const handler = () => setWidth(window.innerWidth);
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return { isMobile: width < 640, isTablet: width >= 640 && width < 1024 };
 }
 
 function App() {
@@ -34,6 +47,9 @@ function App() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const [editorRatio, setEditorRatio] = useState(0.5);
   const [prevSidebarWidth, setPrevSidebarWidth] = useState(DEFAULT_SIDEBAR_WIDTH);
+  const [activePanel, setActivePanel] = useState<MobilePanel>("terminal");
+  const [tabletSidebarOpen, setTabletSidebarOpen] = useState(false);
+  const { isMobile, isTablet } = useBreakpoint();
 
   const activeProject = projects.find((p) => p.id === activeProjectId) ?? null;
   const sessionId = activeProject?.session_id ?? null;
@@ -107,6 +123,8 @@ function App() {
       setOpenFiles((prev) => [...prev, { path, name }]);
     }
     setActiveFilePath(path);
+    if (isMobile) setActivePanel("editor");
+    if (isTablet) setTabletSidebarOpen(false);
   }
 
   function handleCloseFile(path: string) {
@@ -162,6 +180,105 @@ function App() {
     return <LoginPage onLogin={() => setIsLoggedIn(true)} />;
   }
 
+  const sidebarElement = (
+    <Sidebar
+      isCollapsed={false}
+      onToggleCollapse={isTablet ? () => setTabletSidebarOpen(false) : handleToggleSidebar}
+      projects={projects}
+      activeProjectId={activeProjectId}
+      currentThemeId={currentTheme.id}
+      onRefreshProjects={refreshProjects}
+      onSelectProject={handleSelectProject}
+      onSelectFile={handleSelectFile}
+      onChangeTheme={handleChangeTheme}
+    />
+  );
+
+  const editorElement = (
+    <EditorPanel
+      openFiles={openFiles}
+      activeFilePath={activeFilePath}
+      monacoTheme={currentTheme.monacoTheme}
+      onSelectFile={setActiveFilePath}
+      onCloseFile={handleCloseFile}
+    />
+  );
+
+  const terminalElement = (
+    <>
+      {sessionId && activeProject && (
+        <SessionHeader projectName={activeProject.name} />
+      )}
+      {projects
+        .filter((p) => p.session_id)
+        .map((p) => (
+          <div
+            key={p.session_id}
+            style={{
+              display: p.session_id === sessionId ? "contents" : "none",
+            }}
+          >
+            <Terminal sessionId={p.session_id!} theme={currentTheme} />
+          </div>
+        ))}
+      {!sessionId && (
+        <div className="terminal-placeholder">
+          {activeProject
+            ? "Start a session to begin"
+            : "Select a project from the sidebar"}
+        </div>
+      )}
+    </>
+  );
+
+  // --- Mobile layout (< 640px) ---
+  if (isMobile) {
+    return (
+      <div className="app">
+        <div className="mobile-layout">
+          <div className="mobile-panel" style={{ display: activePanel === "files" ? "flex" : "none" }}>
+            {sidebarElement}
+          </div>
+          <div className="mobile-panel" style={{ display: activePanel === "editor" ? "flex" : "none" }}>
+            {editorElement}
+          </div>
+          <div className="mobile-panel" style={{ display: activePanel === "terminal" ? "flex" : "none" }}>
+            {terminalElement}
+          </div>
+          <BottomTabBar activePanel={activePanel} onChangePanel={setActivePanel} />
+        </div>
+      </div>
+    );
+  }
+
+  // --- Tablet layout (640px ~ 1023px) ---
+  if (isTablet) {
+    return (
+      <div className="app">
+        {tabletSidebarOpen && (
+          <div className="tablet-sidebar-overlay" onClick={() => setTabletSidebarOpen(false)}>
+            <div className="tablet-sidebar" onClick={(e) => e.stopPropagation()}>
+              {sidebarElement}
+            </div>
+          </div>
+        )}
+        <div className="tablet-layout">
+          <button className="tablet-sidebar-toggle" onClick={() => setTabletSidebarOpen(true)}>
+            ☰
+          </button>
+          <div className="tablet-editor-wrapper">
+            {editorElement}
+          </div>
+          <ResizeHandle direction="vertical" onResize={handleEditorResize} />
+          <div className="tablet-terminal-wrapper">
+            {terminalElement}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // --- Desktop layout (>= 1024px) ---
   return (
     <div className="app">
       <div className="layout">
@@ -185,41 +302,13 @@ function App() {
 
         <div className="right-panel">
           <div className="editor-wrapper" style={{ flex: editorRatio }}>
-            <EditorPanel
-              openFiles={openFiles}
-              activeFilePath={activeFilePath}
-              monacoTheme={currentTheme.monacoTheme}
-              onSelectFile={setActiveFilePath}
-              onCloseFile={handleCloseFile}
-            />
+            {editorElement}
           </div>
 
           <ResizeHandle direction="vertical" onResize={handleEditorResize} />
 
           <div className="terminal-wrapper" style={{ flex: 1 - editorRatio }}>
-            {sessionId && activeProject && (
-              <SessionHeader projectName={activeProject.name} />
-            )}
-            {/* Render all active session terminals, hide inactive ones */}
-            {projects
-              .filter((p) => p.session_id)
-              .map((p) => (
-                <div
-                  key={p.session_id}
-                  style={{
-                    display: p.session_id === sessionId ? "contents" : "none",
-                  }}
-                >
-                  <Terminal sessionId={p.session_id!} theme={currentTheme} />
-                </div>
-              ))}
-            {!sessionId && (
-              <div className="terminal-placeholder">
-                {activeProject
-                  ? "Start a session to begin"
-                  : "Select a project from the sidebar"}
-              </div>
-            )}
+            {terminalElement}
           </div>
         </div>
       </div>

@@ -12,6 +12,8 @@ def temp_data_dir(tmp_path, monkeypatch):
     monkeypatch.setattr(store, "SETTINGS_FILE", tmp_path / "settings.json")
     monkeypatch.setattr(auth, "USERS_FILE", tmp_path / "users.json")
     monkeypatch.setattr(auth, "SECRET_KEY_FILE", tmp_path / "secret.key")
+    # 테스트에서 서버 종료 방지
+    monkeypatch.setattr(auth, "_shutdown_server", lambda: None)
     return tmp_path
 
 
@@ -45,6 +47,67 @@ async def test_login_bad_password(client, temp_data_dir):
     auth.ensure_users_file()
     res = await client.post("/api/login", json={"username": "admin", "password": "wrong"})
     assert res.status_code == 401
+
+
+async def test_login_lockout_after_5_failures(client, temp_data_dir):
+    """5회 연속 실패 시 계정 잠금, 423 반환."""
+    auth.ensure_users_file()
+    for i in range(4):
+        res = await client.post("/api/login", json={"username": "admin", "password": "wrong"})
+        assert res.status_code == 401, f"Attempt {i+1} should return 401"
+
+    # 5번째 실패 → 잠금 (서버 종료는 테스트에서 패치)
+    res = await client.post("/api/login", json={"username": "admin", "password": "wrong"})
+    assert res.status_code == 423
+    assert "locked" in res.json()["detail"].lower()
+
+
+async def test_locked_account_rejects_correct_password(client, temp_data_dir):
+    """잠긴 계정은 올바른 비밀번호도 거부."""
+    auth.ensure_users_file()
+    # 수동으로 잠금 설정
+    users = auth._load_users()
+    users[0]["locked"] = True
+    auth._save_users(users)
+
+    res = await client.post("/api/login", json={"username": "admin", "password": "admin"})
+    assert res.status_code == 423
+
+
+async def test_successful_login_resets_failed_attempts(client, temp_data_dir):
+    """로그인 성공 시 failed_attempts 리셋."""
+    auth.ensure_users_file()
+    # 3회 실패
+    for _ in range(3):
+        await client.post("/api/login", json={"username": "admin", "password": "wrong"})
+
+    # 성공
+    res = await client.post("/api/login", json={"username": "admin", "password": "admin"})
+    assert res.status_code == 200
+
+    users = auth._load_users()
+    assert users[0].get("failed_attempts", 0) == 0
+
+
+async def test_unlock_by_editing_users_json(client, temp_data_dir):
+    """users.json에서 locked 필드 제거 후 로그인 가능."""
+    auth.ensure_users_file()
+    users = auth._load_users()
+    users[0]["locked"] = True
+    users[0]["failed_attempts"] = 5
+    auth._save_users(users)
+
+    # 잠긴 상태 확인
+    res = await client.post("/api/login", json={"username": "admin", "password": "admin"})
+    assert res.status_code == 423
+
+    # locked 해제
+    users[0]["locked"] = False
+    users[0]["failed_attempts"] = 0
+    auth._save_users(users)
+
+    res = await client.post("/api/login", json={"username": "admin", "password": "admin"})
+    assert res.status_code == 200
 
 
 async def test_me(client, auth_headers):

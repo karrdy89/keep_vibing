@@ -19,6 +19,7 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  touch-action: manipulation;
 }
 
 body {
@@ -833,10 +834,236 @@ body {
   text-align: center;
 }
 
+.login-error-locked {
+  font-weight: 700;
+  padding: 8px;
+  background: rgba(243, 139, 168, 0.15);
+  border-radius: 6px;
+}
+
 /* === Context Menu Separator === */
 
 .context-menu-separator {
   height: 1px;
   background: var(--bg-hover);
   margin: 4px 0;
+}
+
+/* === Mobile Layout (< 640px) === */
+
+.mobile-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.mobile-panel {
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.bottom-tab-bar {
+  display: flex;
+  flex-shrink: 0;
+  border-top: 1px solid var(--border);
+  background: var(--bg-surface);
+}
+
+.bottom-tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 8px 0;
+  border: none;
+  background: transparent;
+  color: var(--fg-muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+}
+
+.bottom-tab.active {
+  color: var(--accent);
+}
+
+.bottom-tab-icon {
+  font-size: 1.1rem;
+}
+
+.bottom-tab-label {
+  font-size: 0.65rem;
+}
+
+/* === Terminal Toolbar (mobile special keys) === */
+
+.terminal-toolbar {
+  display: flex;
+  gap: 4px;
+  padding: 6px 8px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  flex-shrink: 0;
+}
+
+.terminal-toolbar-key {
+  padding: 6px 12px;
+  min-height: 36px;
+  border: 1px solid var(--bg-hover);
+  border-radius: 6px;
+  background: var(--bg-overlay);
+  color: var(--fg-primary);
+  font-size: 0.75rem;
+  font-family: monospace;
+  cursor: pointer;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.terminal-toolbar-key:active {
+  background: var(--bg-hover);
+}
+
+/* === Code Editor Readonly (mobile fallback) === */
+
+.code-editor-readonly {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.code-editor-readonly-notice {
+  padding: 8px 12px;
+  background: var(--bg-surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--fg-muted);
+  font-size: 0.75rem;
+  text-align: center;
+  flex-shrink: 0;
+}
+
+.code-editor-readonly-content {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
+  padding: 12px;
+  margin: 0;
+  font-size: 0.8rem;
+  line-height: 1.5;
+  color: var(--fg-primary);
+  background: var(--bg-base);
+  -webkit-overflow-scrolling: touch;
+}
+
+/* === Tablet Layout (640px ~ 1023px) === */
+
+.tablet-sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1500;
+  background: rgba(0, 0, 0, 0.5);
+}
+
+.tablet-sidebar {
+  width: 280px;
+  height: 100%;
+  background: var(--bg-surface);
+}
+
+.tablet-layout {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.tablet-sidebar-toggle {
+  flex-shrink: 0;
+  padding: 6px 12px;
+  border: none;
+  background: var(--bg-surface);
+  color: var(--fg-primary);
+  font-size: 1.2rem;
+  cursor: pointer;
+  text-align: left;
+  border-bottom: 1px solid var(--border);
+}
+
+.tablet-sidebar-toggle:hover {
+  background: var(--bg-overlay);
+}
+
+.tablet-editor-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.tablet-terminal-wrapper {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+/* === Touch-friendly overrides (mobile/tablet) === */
+
+@media (max-width: 1023px) {
+  .file-tree-item {
+    padding: 8px 4px;
+    min-height: 44px;
+  }
+
+  .project-item {
+    padding: 8px 8px;
+    min-height: 44px;
+  }
+
+  .project-actions {
+    opacity: 1;
+  }
+
+  .project-action-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 0.85rem;
+  }
+
+  .tab-close {
+    width: 28px;
+    height: 28px;
+    opacity: 1;
+  }
+
+  .sidebar-toggle {
+    width: 40px;
+    height: 40px;
+  }
+
+  .sidebar-add-btn {
+    width: 36px;
+    height: 36px;
+    font-size: 1.3rem;
+  }
+
+  .context-menu-item {
+    padding: 10px 16px;
+    min-height: 44px;
+  }
+}
+
+@media (max-width: 639px) {
+  .login-form {
+    width: 100%;
+    max-width: 320px;
+    margin: 0 16px;
+  }
+
+  .modal {
+    width: calc(100vw - 32px);
+  }
 }

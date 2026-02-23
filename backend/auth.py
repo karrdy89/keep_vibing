@@ -1,6 +1,9 @@
 import asyncio
 import json
+import logging
+import os
 import secrets
+import threading
 from datetime import datetime, timedelta, timezone
 
 import bcrypt
@@ -9,10 +12,13 @@ from fastapi import HTTPException, Request
 
 from backend.store import DATA_DIR, _ensure_data_dir
 
+logger = logging.getLogger(__name__)
+
 USERS_FILE = DATA_DIR / "users.json"
 SECRET_KEY_FILE = DATA_DIR / "secret.key"
 ALGORITHM = "HS256"
 TOKEN_EXPIRE_HOURS = 72
+MAX_FAILED_ATTEMPTS = 5
 
 
 def _get_secret_key() -> str:
@@ -54,13 +60,35 @@ def ensure_users_file():
     print(f"[auth] Created default account: admin / {default_password}")
 
 
+def _shutdown_server():
+    """계정 잠금 시 서버 프로세스를 종료하여 추가 공격을 차단한다."""
+    logger.critical("[auth] Account locked — shutting down server to prevent further attacks.")
+    # start.py가 자식 프로세스 종료를 감지하여 frontend도 함께 종료함
+    threading.Timer(3.0, lambda: os._exit(1)).start()
+
+
 async def authenticate(username: str, password: str) -> dict | None:
     users = _load_users()
     for u in users:
         if u["username"] == username:
+            if u.get("locked"):
+                raise HTTPException(status_code=423, detail="Account locked")
+
             is_valid = await asyncio.to_thread(verify_password, password, u["password_hash"])
             if is_valid:
+                u["failed_attempts"] = 0
+                _save_users(users)
                 return {"username": u["username"]}
+
+            # 실패 횟수 증가
+            u["failed_attempts"] = u.get("failed_attempts", 0) + 1
+            if u["failed_attempts"] >= MAX_FAILED_ATTEMPTS:
+                u["locked"] = True
+                _save_users(users)
+                _shutdown_server()
+                raise HTTPException(status_code=423, detail="Account locked")
+            _save_users(users)
+            return None
     return None
 
 
