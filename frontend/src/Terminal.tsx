@@ -108,6 +108,98 @@ export default function Terminal({ sessionId, theme, onSessionEnd }: Props) {
     return () => container.removeEventListener("paste", onPaste);
   }, [sessionId]);
 
+  // Mobile touch scroll for xterm (with inertia)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    let accumulatedDelta = 0;
+    const LINE_HEIGHT = 10;
+    const FRICTION = 0.95;
+    const MIN_VELOCITY = 0.3;
+
+    let lastY = 0;
+    let lastTime = 0;
+    let velocity = 0;
+    let animationId: number | null = null;
+    let prevTimestamp = 0;
+
+    function stopInertia() {
+      if (animationId !== null) {
+        cancelAnimationFrame(animationId);
+        animationId = null;
+      }
+    }
+
+    function onTouchStart(e: TouchEvent) {
+      stopInertia();
+      lastY = e.touches[0].clientY;
+      lastTime = Date.now();
+      accumulatedDelta = 0;
+      velocity = 0;
+    }
+
+    function onTouchMove(e: TouchEvent) {
+      e.preventDefault();
+      const term = termRef.current;
+      if (!term) return;
+
+      const now = Date.now();
+      const currentY = e.touches[0].clientY;
+      const delta = lastY - currentY;
+      const dt = now - lastTime;
+      if (dt > 0) {
+        velocity = delta / dt;
+      }
+      lastY = currentY;
+      lastTime = now;
+
+      accumulatedDelta += delta;
+      const lines = Math.trunc(accumulatedDelta / LINE_HEIGHT);
+      if (lines !== 0) {
+        term.scrollLines(lines);
+        accumulatedDelta -= lines * LINE_HEIGHT;
+      }
+    }
+
+    function onTouchEnd() {
+      if (!termRef.current || Math.abs(velocity) < 0.05) return;
+
+      let pxPerMs = velocity;
+      let inertiaDelta = 0;
+      prevTimestamp = 0;
+
+      function animate(timestamp: number) {
+        if (!termRef.current) { animationId = null; return; }
+        const dt = prevTimestamp ? timestamp - prevTimestamp : 16;
+        prevTimestamp = timestamp;
+
+        const framePx = pxPerMs * dt;
+        if (Math.abs(framePx) < MIN_VELOCITY) { animationId = null; return; }
+
+        inertiaDelta += framePx;
+        const lines = Math.trunc(inertiaDelta / LINE_HEIGHT);
+        if (lines !== 0) {
+          termRef.current.scrollLines(lines);
+          inertiaDelta -= lines * LINE_HEIGHT;
+        }
+        pxPerMs *= FRICTION;
+        animationId = requestAnimationFrame(animate);
+      }
+      animationId = requestAnimationFrame(animate);
+    }
+
+    container.addEventListener("touchstart", onTouchStart, { passive: true });
+    container.addEventListener("touchmove", onTouchMove, { passive: false });
+    container.addEventListener("touchend", onTouchEnd, { passive: true });
+    return () => {
+      stopInertia();
+      container.removeEventListener("touchstart", onTouchStart);
+      container.removeEventListener("touchmove", onTouchMove);
+      container.removeEventListener("touchend", onTouchEnd);
+    };
+  }, [sessionId]);
+
   // Update theme without recreating terminal/WS
   useEffect(() => {
     if (termRef.current) {
@@ -141,8 +233,8 @@ export default function Terminal({ sessionId, theme, onSessionEnd }: Props) {
   }, []);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", flex: 1, minHeight: 0 }}>
-      <div ref={containerRef} style={{ width: "100%", flex: 1, minHeight: 0 }} />
+    <div style={{ display: "flex", flexDirection: "column", width: "100%", flex: 1, minHeight: 0 }}>
+      <div ref={containerRef} style={{ width: "100%", flex: 1, minHeight: 0, overflow: "hidden" }} />
       {isMobile && <TerminalToolbar onSendKey={handleSendKey} onPaste={handlePaste} />}
     </div>
   );
