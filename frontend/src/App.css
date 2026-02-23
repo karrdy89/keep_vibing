@@ -95,6 +95,8 @@ body {
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  -webkit-user-select: none;
+  user-select: none;
 }
 
 .sidebar-header {
@@ -182,6 +184,8 @@ body {
   color: var(--fg-primary);
   font-size: 0.85rem;
   outline: none;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .sidebar-input:focus {
@@ -425,6 +429,8 @@ body {
   color: var(--fg-primary);
   font-size: 0.8rem;
   outline: none;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 /* === Context Menu === */
@@ -711,6 +717,8 @@ body {
   color: var(--fg-primary);
   font-size: 0.8rem;
   outline: none;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .settings-select:focus {
@@ -737,6 +745,8 @@ body {
   color: var(--fg-primary);
   font-size: 0.85rem;
   outline: none;
+  -webkit-user-select: text;
+  user-select: text;
 }
 
 .settings-input:focus {
