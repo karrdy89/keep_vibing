@@ -46,6 +46,7 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
     y: number;
     path: string;
     isDir: boolean;
+    isEmptyArea?: boolean;
   } | null>(null);
   const [inlineInput, setInlineInput] = useState<{
     parentPath: string;
@@ -122,7 +123,19 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
 
   function handleContextMenu(e: React.MouseEvent, path: string, isDir: boolean) {
     e.preventDefault();
+    if (_persistedClipboard !== clipboard) {
+      setClipboardState(_persistedClipboard);
+    }
     setContextMenu({ x: e.clientX, y: e.clientY, path, isDir });
+  }
+
+  function handleEmptyAreaContextMenu(e: React.MouseEvent) {
+    if ((e.target as HTMLElement).closest(".file-tree-item")) return;
+    e.preventDefault();
+    if (_persistedClipboard !== clipboard) {
+      setClipboardState(_persistedClipboard);
+    }
+    setContextMenu({ x: e.clientX, y: e.clientY, path: rootPath, isDir: true, isEmptyArea: true });
   }
 
   async function handleCreate(parentPath: string, name: string, type: "file" | "directory") {
@@ -198,7 +211,7 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
 
   function getContextMenuItems(): MenuItem[] {
     if (!contextMenu) return [];
-    const { path, isDir } = contextMenu;
+    const { path, isDir, isEmptyArea } = contextMenu;
     const items: MenuItem[] = [];
 
     if (isDir) {
@@ -216,39 +229,41 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
           onClick: () => handlePaste(path),
         });
       }
-      items.push({ separator: true });
+      if (!isEmptyArea) items.push({ separator: true });
     }
 
-    items.push({
-      label: "Copy",
-      onClick: () => setClipboard({ path, isDir, isCut: false }),
-    });
-    items.push({
-      label: "Cut",
-      onClick: () => setClipboard({ path, isDir, isCut: true }),
-    });
-    items.push({
-      label: "Rename",
-      onClick: () => {
-        const name = path.split("/").pop() ?? "";
-        const parent = path.substring(0, path.replace(/\\/g, "/").lastIndexOf("/"));
-        setInlineInput({
-          parentPath: parent || rootPath,
-          type: "rename",
-          defaultValue: name,
-          originalPath: path,
-        });
-      },
-    });
-    items.push({
-      label: "Delete",
-      onClick: () => handleDelete(path),
-    });
-    items.push({ separator: true });
-    items.push({
-      label: "Copy Path",
-      onClick: () => navigator.clipboard.writeText(path),
-    });
+    if (!isEmptyArea) {
+      items.push({
+        label: "Copy",
+        onClick: () => setClipboard({ path, isDir, isCut: false }),
+      });
+      items.push({
+        label: "Cut",
+        onClick: () => setClipboard({ path, isDir, isCut: true }),
+      });
+      items.push({
+        label: "Rename",
+        onClick: () => {
+          const name = path.split("/").pop() ?? "";
+          const parent = path.substring(0, path.replace(/\\/g, "/").lastIndexOf("/"));
+          setInlineInput({
+            parentPath: parent || rootPath,
+            type: "rename",
+            defaultValue: name,
+            originalPath: path,
+          });
+        },
+      });
+      items.push({
+        label: "Delete",
+        onClick: () => handleDelete(path),
+      });
+      items.push({ separator: true });
+      items.push({
+        label: "Copy Path",
+        onClick: () => navigator.clipboard.writeText(path),
+      });
+    }
 
     return items;
   }
@@ -309,7 +324,7 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
   }
 
   return (
-    <div className="file-tree">
+    <div className="file-tree" onContextMenu={handleEmptyAreaContextMenu}>
       {nodes.length === 0 && loaded && (
         <div className="file-tree-empty">No files</div>
       )}
