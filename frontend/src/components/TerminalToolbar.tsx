@@ -7,6 +7,7 @@ const row1Keys = [
   { label: "Esc", data: "\x1b" },
   { label: "Ctrl+C", data: "\x03" },
   { label: "Ctrl+D", data: "\x04" },
+  { label: "Ctrl+E", data: "\x05" },
 ];
 
 const arrowKeys = [
@@ -31,15 +32,13 @@ export default function TerminalToolbar({ onSendKey, onPaste }: Props) {
               {k.label}
             </button>
           ))}
-          {onPaste && (
-            <button
-              className="terminal-toolbar-key"
-              onMouseDown={(e) => e.preventDefault()}
-              onClick={onPaste}
-            >
-              Paste
-            </button>
-          )}
+          <button
+            className="terminal-toolbar-key terminal-toolbar-key-end"
+            onMouseDown={(e) => e.preventDefault()}
+            onClick={() => onSendKey("\x1b[3~")}
+          >
+            Del
+          </button>
         </div>
         <div className="terminal-toolbar-row">
           <button
@@ -49,6 +48,15 @@ export default function TerminalToolbar({ onSendKey, onPaste }: Props) {
           >
             Tab
           </button>
+          {onPaste && (
+            <button
+              className="terminal-toolbar-key"
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={onPaste}
+            >
+              Paste
+            </button>
+          )}
           <button
             className="terminal-toolbar-key terminal-toolbar-key-end"
             onMouseDown={(e) => e.preventDefault()}

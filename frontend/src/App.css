@@ -938,7 +938,7 @@ body {
 .terminal-toolbar-keys {
   display: flex;
   flex-direction: column;
-  gap: 3px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
 }
