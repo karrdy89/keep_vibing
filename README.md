@@ -1,6 +1,6 @@
 # keep_vibing
 
-A web-based interface for accessing Claude Code development environments from any browser on your local network.
+A lightweight server that lets you access your local workstation's Claude Code environment from anywhere — whether on your phone, tablet, or another PC. Just start the server and continue coding right where you left off.
 
 ## Screenshot
 
