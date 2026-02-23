@@ -87,6 +87,26 @@ export default function Terminal({ sessionId, theme, onSessionEnd }: Props) {
     };
   }, [sessionId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Handle paste events on the terminal container
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    function onPaste(e: ClipboardEvent) {
+      const text = e.clipboardData?.getData("text");
+      if (text) {
+        e.preventDefault();
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(text);
+        }
+      }
+    }
+
+    container.addEventListener("paste", onPaste);
+    return () => container.removeEventListener("paste", onPaste);
+  }, [sessionId]);
+
   // Update theme without recreating terminal/WS
   useEffect(() => {
     if (termRef.current) {
@@ -109,10 +129,24 @@ export default function Terminal({ sessionId, theme, onSessionEnd }: Props) {
     termRef.current?.focus();
   }, []);
 
+  const handlePaste = useCallback(async () => {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) {
+        const ws = wsRef.current;
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(text);
+        }
+      }
+    } catch {
+      // clipboard permission denied — ignore silently
+    }
+  }, []);
+
   return (
     <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%", flex: 1, minHeight: 0 }}>
       <div ref={containerRef} style={{ width: "100%", flex: 1, minHeight: 0 }} />
-      {isMobile && <TerminalToolbar onSendKey={handleSendKey} />}
+      {isMobile && <TerminalToolbar onSendKey={handleSendKey} onPaste={handlePaste} />}
     </div>
   );
 }

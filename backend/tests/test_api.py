@@ -1,3 +1,5 @@
+import os
+
 import pytest
 from httpx import ASGITransport, AsyncClient
 
@@ -543,3 +545,81 @@ async def test_copy_dir_into_itself(client, auth_headers, tmp_path):
         headers=auth_headers,
     )
     assert res.status_code == 400
+
+
+# --- File Upload API ---
+
+
+async def test_upload_file(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+
+    res = await client.post(
+        f"/api/files/upload?path={project_dir}",
+        headers=auth_headers,
+        files=[("files", ("hello.txt", b"hello world", "text/plain"))],
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert data["status"] == "uploaded"
+    assert len(data["paths"]) == 1
+    assert (project_dir / "hello.txt").read_text() == "hello world"
+
+
+async def test_upload_file_name_conflict(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    (project_dir / "dup.txt").write_text("existing")
+
+    res = await client.post(
+        f"/api/files/upload?path={project_dir}",
+        headers=auth_headers,
+        files=[("files", ("dup.txt", b"new content", "text/plain"))],
+    )
+    assert res.status_code == 200
+    data = res.json()
+    assert "dup (1).txt" in data["paths"][0]
+    assert (project_dir / "dup.txt").read_text() == "existing"
+    assert (project_dir / "dup (1).txt").read_text() == "new content"
+
+
+async def test_upload_forbidden_path(client, auth_headers, tmp_path):
+    await _create_project(client, auth_headers, tmp_path)
+
+    res = await client.post(
+        f"/api/files/upload?path={tmp_path}",
+        headers=auth_headers,
+        files=[("files", ("bad.txt", b"data", "text/plain"))],
+    )
+    assert res.status_code == 403
+
+
+async def test_upload_too_large(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    big_content = b"x" * (5 * 1024 * 1024 + 1)
+
+    res = await client.post(
+        f"/api/files/upload?path={project_dir}",
+        headers=auth_headers,
+        files=[("files", ("big.bin", big_content, "application/octet-stream"))],
+    )
+    assert res.status_code == 413
+
+
+async def test_upload_no_files(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    res = await client.post(
+        f"/api/files/upload?path={project_dir}",
+        headers=auth_headers,
+    )
+    assert res.status_code == 400
+
+
+async def test_upload_path_traversal(client, auth_headers, tmp_path):
+    project_dir = await _create_project(client, auth_headers, tmp_path)
+    res = await client.post(
+        f"/api/files/upload?path={project_dir}",
+        headers=auth_headers,
+        files=[("files", ("../../evil.txt", b"pwned", "text/plain"))],
+    )
+    assert res.status_code == 200
+    assert not os.path.exists(os.path.join(str(tmp_path), "evil.txt"))
+    assert os.path.exists(os.path.join(project_dir, "evil.txt"))

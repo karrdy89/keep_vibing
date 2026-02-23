@@ -2,7 +2,7 @@ import base64
 import os
 import shutil
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
@@ -328,6 +328,37 @@ def _resolve_copy_name(dest_dir: str, name: str, is_dir: bool) -> str:
         if not os.path.exists(candidate):
             return candidate
         counter += 1
+
+
+@router.post("/files/upload")
+async def api_upload_files(
+    path: str = Query(...),
+    files: list[UploadFile] = File(default=[]),
+    _user: dict = Depends(get_current_user),
+):
+    dest_dir = _validate_file_path(path)
+    if not os.path.isdir(dest_dir):
+        raise HTTPException(status_code=400, detail="Destination is not a directory")
+
+    if not files:
+        raise HTTPException(status_code=400, detail="No files provided")
+
+    uploaded = []
+    for file in files:
+        content = await file.read()
+        if len(content) > MAX_FILE_SIZE:
+            raise HTTPException(
+                status_code=413,
+                detail=f"File too large: {file.filename} (max 5MB)",
+            )
+        filename = os.path.basename(file.filename or "untitled") or "untitled"
+        is_dir = False
+        target = _resolve_copy_name(dest_dir, filename, is_dir)
+        with open(target, "wb") as f:
+            f.write(content)
+        uploaded.append(target.replace("\\", "/"))
+
+    return {"status": "uploaded", "paths": uploaded}
 
 
 @router.post("/files/copy")

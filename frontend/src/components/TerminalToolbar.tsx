@@ -1,5 +1,6 @@
 interface Props {
   onSendKey: (data: string) => void;
+  onPaste?: () => void;
 }
 
 const keys = [
@@ -11,7 +12,7 @@ const keys = [
   { label: "Esc", data: "\x1b" },
 ];
 
-export default function TerminalToolbar({ onSendKey }: Props) {
+export default function TerminalToolbar({ onSendKey, onPaste }: Props) {
   return (
     <div className="terminal-toolbar">
       {keys.map((k) => (
@@ -24,6 +25,15 @@ export default function TerminalToolbar({ onSendKey }: Props) {
           {k.label}
         </button>
       ))}
+      {onPaste && (
+        <button
+          className="terminal-toolbar-key"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onPaste}
+        >
+          Paste
+        </button>
+      )}
     </div>
   );
 }

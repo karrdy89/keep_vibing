@@ -36,6 +36,9 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
   const [clipboard, setClipboardState] = useState<ClipboardEntry | null>(
     () => _persistedClipboard,
   );
+  const [isDragOver, setIsDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadTargetRef = useRef<string>("");
 
   function setClipboard(v: ClipboardEntry | null) {
     persistClipboard(v);
@@ -209,6 +212,65 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
     await refreshDir(destDir);
   }
 
+  async function handleUploadFiles(targetDir: string, files: FileList | File[]) {
+    const formData = new FormData();
+    for (const file of files) {
+      formData.append("files", file);
+    }
+    const res = await fetch(`/api/files/upload?path=${encodeURIComponent(targetDir)}`, {
+      method: "POST",
+      headers: authHeaders(),
+      body: formData,
+    });
+    if (res.ok) {
+      await refreshDir(targetDir);
+    } else {
+      const data = await res.json().catch(() => ({}));
+      alert(data.detail || "Upload failed");
+    }
+  }
+
+  function handleFileInputChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      handleUploadFiles(uploadTargetRef.current, files);
+    }
+    e.target.value = "";
+  }
+
+  const [uploadTrigger, setUploadTrigger] = useState<{ dir: string; id: number } | null>(null);
+
+  useEffect(() => {
+    if (uploadTrigger) {
+      uploadTargetRef.current = uploadTrigger.dir;
+      fileInputRef.current?.click();
+    }
+  }, [uploadTrigger]);
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.types.includes("Files")) {
+      setIsDragOver(true);
+    }
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleUploadFiles(rootPath, files);
+    }
+  }
+
   function getContextMenuItems(): MenuItem[] {
     if (!contextMenu) return [];
     const { path, isDir, isEmptyArea } = contextMenu;
@@ -222,6 +284,10 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
       items.push({
         label: "New Folder",
         onClick: () => setInlineInput({ parentPath: path, type: "directory" }),
+      });
+      items.push({
+        label: "Upload File",
+        onClick: () => setUploadTrigger({ dir: path, id: Date.now() }),
       });
       if (clipboard) {
         items.push({
@@ -324,7 +390,20 @@ export default function FileTree({ rootPath, onSelectFile }: Props) {
   }
 
   return (
-    <div className="file-tree" onContextMenu={handleEmptyAreaContextMenu}>
+    <div
+      className={`file-tree${isDragOver ? " file-tree-dragover" : ""}`}
+      onContextMenu={handleEmptyAreaContextMenu}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      <input
+        ref={fileInputRef}
+        type="file"
+        multiple
+        style={{ display: "none" }}
+        onChange={handleFileInputChange}
+      />
       {nodes.length === 0 && loaded && (
         <div className="file-tree-empty">No files</div>
       )}
