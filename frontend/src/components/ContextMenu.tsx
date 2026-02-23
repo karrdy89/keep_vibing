@@ -35,8 +35,11 @@ export default function ContextMenu({ x, y, items, onClose }: Props) {
             key={item.label}
             className="context-menu-item"
             onClick={() => {
-              item.onClick();
-              onClose();
+              try {
+                item.onClick();
+              } finally {
+                onClose();
+              }
             }}
           >
             {item.label}
