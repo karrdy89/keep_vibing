@@ -2,6 +2,8 @@
 
 A lightweight server that lets you access your local workstation's Claude Code environment from anywhere — whether on your phone, tablet, or another PC. Just start the server and continue coding right where you left off.
 
+**Why keep_vibing?** — Active Claude Code sessions are shared across all connected devices in real-time. Start a task on your PC, pick it up on your phone during a commute, then continue on a tablet — all without losing context. Switch between multiple projects on the fly while every device stays perfectly in sync.
+
 ## Screenshot
 
 ![keep_vibing](docs/screenshot.png)
@@ -22,7 +24,8 @@ A lightweight server that lets you access your local workstation's Claude Code e
 - **File Explorer** — Tree view with create, delete, rename, copy/cut/paste via context menu
 - **Code Editor** — Monaco Editor with tab management, syntax highlighting, Markdown/image viewer
 - **Claude Code Terminal** — Runs claude CLI as a subprocess, pipes stdin/stdout over WebSocket with real-time PTY resize
-- **Cross-Device Session Sharing** — Switch from PC to mobile seamlessly; existing terminal history is preserved with multi-client support
+- **Seamless Cross-Device Session** — Active Claude Code sessions are shared across all devices in real-time. Switch from PC to mobile without losing any context; terminal history and state are fully preserved with multi-client support
+- **Multi-Project Workflow** — Manage multiple directory-based projects and switch between them instantly. Each project maintains its own independent Claude Code session
 - **Mobile Support** — Responsive layout for smartphones and tablets with touch-optimized controls
 - **Theming** — Switch between dark/light themes
 
