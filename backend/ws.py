@@ -50,7 +50,7 @@ async def websocket_terminal(websocket: WebSocket, session_id: str):
                         parts = data[len(RESIZE_PREFIX):].split(",")
                         cols, rows = int(parts[0]), int(parts[1])
                         resize_session(session_id, rows, cols)
-                    except (ValueError, IndexError):
+                    except Exception:
                         pass
                 else:
                     await write_to_session(session_id, data)

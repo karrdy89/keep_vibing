@@ -103,7 +103,7 @@ def resize_session(session_id: str, rows: int, cols: int):
     if not session or not session.is_alive:
         return
     try:
-        session.pty_process.set_size(rows, cols)
+        session.pty_process.setwinsize(rows, cols)
     except (OSError, EOFError):
         pass
 
