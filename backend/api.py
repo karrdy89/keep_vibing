@@ -184,10 +184,7 @@ async def api_list_files(
     entries = []
     try:
         for entry in os.scandir(validated):
-            if entry.name.startswith(".") and entry.name not in (".env",):
-                if entry.is_dir() or entry.name not in (".gitignore", ".editorconfig"):
-                    continue
-            if entry.is_dir() and entry.name in HIDDEN_DIRS:
+            if entry.name in HIDDEN_DIRS:
                 continue
             entries.append({
                 "name": entry.name,
