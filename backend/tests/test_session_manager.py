@@ -133,6 +133,30 @@ def test_unregister_client_nonexistent_session():
     unregister_client("nonexistent", q)
 
 
+def test_resolve_agent_process_unsupported():
+    from backend.session_manager import _resolve_agent_process
+
+    with pytest.raises(RuntimeError, match="Unsupported agent"):
+        _resolve_agent_process("foobar")
+
+
+def test_resolve_agent_process_not_found(monkeypatch):
+    from backend import session_manager
+
+    monkeypatch.setattr(session_manager.shutil, "which", lambda _cmd: None)
+    with pytest.raises(RuntimeError, match="not found in PATH"):
+        session_manager._resolve_agent_process("codex")
+
+
+def test_resolve_agent_process_codex_args(monkeypatch):
+    from backend import session_manager
+
+    monkeypatch.setattr(session_manager.shutil, "which", lambda _cmd: "/usr/bin/codex")
+    path, args = session_manager._resolve_agent_process("codex")
+    assert path == "/usr/bin/codex"
+    assert args == ["-c", 'model_reasoning_effort="high"']
+
+
 @pytest.mark.asyncio
 async def test_destroy_session_signals_all_queues():
     session = _make_session()

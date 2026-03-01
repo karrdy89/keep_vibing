@@ -1,3 +1,5 @@
+import json
+
 import pytest
 
 from backend import store
@@ -21,6 +23,7 @@ def test_create_and_load_project(tmp_path):
     p = store.create_project("My Project", str(project_dir))
     assert p["name"] == "My Project"
     assert p["id"].startswith("proj_")
+    assert p["agent"] == "claude"
 
     projects = store.load_projects()
     assert len(projects) == 1
@@ -34,6 +37,27 @@ def test_create_project_deduplicates(tmp_path):
     p2 = store.create_project("B", str(project_dir))
     assert p1["id"] == p2["id"]
     assert len(store.load_projects()) == 1
+
+
+def test_create_project_allows_different_agents_same_path(tmp_path):
+    project_dir = tmp_path / "myproject"
+    project_dir.mkdir()
+    p1 = store.create_project("A", str(project_dir), "claude")
+    p2 = store.create_project("B", str(project_dir), "codex")
+    assert p1["id"] != p2["id"]
+    assert len(store.load_projects()) == 2
+
+
+def test_load_projects_migrates_missing_agent(tmp_path):
+    store.PROJECTS_FILE.write_text(
+        json.dumps(
+            [{"id": "proj_1", "name": "Old", "path": str(tmp_path / "legacy")}],
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+    projects = store.load_projects()
+    assert projects[0]["agent"] == "claude"
 
 
 def test_get_project(tmp_path):

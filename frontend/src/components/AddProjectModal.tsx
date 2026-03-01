@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { api } from "../api";
+import { api, type AgentType } from "../api";
 
 interface Props {
   onClose: () => void;
@@ -8,6 +8,7 @@ interface Props {
 
 export default function AddProjectModal({ onClose, onAdded }: Props) {
   const [path, setPath] = useState("");
+  const [agent, setAgent] = useState<AgentType>("claude");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -29,7 +30,7 @@ export default function AddProjectModal({ onClose, onAdded }: Props) {
     setError("");
     setLoading(true);
     try {
-      await api.createProject(path.trim().replace(/^["']+|["']+$/g, ""));
+      await api.createProject(path.trim().replace(/^["']+|["']+$/g, ""), agent);
       onAdded();
       onClose();
     } catch (e: unknown) {
@@ -56,6 +57,15 @@ export default function AddProjectModal({ onClose, onAdded }: Props) {
             onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
             placeholder="C:\path\to\project"
           />
+          <label className="sidebar-label">Agent</label>
+          <select
+            className="settings-select"
+            value={agent}
+            onChange={(e) => setAgent(e.target.value as AgentType)}
+          >
+            <option value="claude">Claude</option>
+            <option value="codex">Codex</option>
+          </select>
           {error && <p className="error">{error}</p>}
         </div>
         <div className="modal-footer">

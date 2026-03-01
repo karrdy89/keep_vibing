@@ -8,6 +8,10 @@ interface Props {
   onSelectProject: (project: Project) => void;
 }
 
+function getAgentLabel(agent: Project["agent"]): string {
+  return agent === "codex" ? "Codex" : "Claude";
+}
+
 export default function ProjectList({
   projects,
   activeProjectId,
@@ -53,6 +57,7 @@ export default function ProjectList({
               title={p.has_session ? "Session active" : "No session"}
             />
             <span className="project-name">{p.name}</span>
+            <span className="project-agent">{getAgentLabel(p.agent)}</span>
             <div className="project-actions">
               <button
                 className="project-action-btn"

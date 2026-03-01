@@ -3,6 +3,7 @@ import os
 import pytest
 from httpx import ASGITransport, AsyncClient
 
+from backend import api as api_module
 from backend import auth, store
 from backend.app import app
 
@@ -169,6 +170,7 @@ async def test_create_project(client, auth_headers, tmp_path):
     data = res.json()
     assert data["name"] == "Test"
     assert data["id"].startswith("proj_")
+    assert data["agent"] == "claude"
 
 
 async def test_create_project_auto_name(client, auth_headers, tmp_path):
@@ -181,6 +183,7 @@ async def test_create_project_auto_name(client, auth_headers, tmp_path):
     )
     assert res.status_code == 200
     assert res.json()["name"] == "my_cool_project"
+    assert res.json()["agent"] == "claude"
 
 
 async def test_create_project_strips_quotes(client, auth_headers, tmp_path):
@@ -194,6 +197,29 @@ async def test_create_project_strips_quotes(client, auth_headers, tmp_path):
     )
     assert res.status_code == 200
     assert res.json()["name"] == "quoted_proj"
+
+
+async def test_create_project_with_codex_agent(client, auth_headers, tmp_path):
+    project_dir = tmp_path / "codex_proj"
+    project_dir.mkdir()
+    res = await client.post(
+        "/api/projects",
+        json={"path": str(project_dir), "agent": "codex"},
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["agent"] == "codex"
+
+
+async def test_create_project_invalid_agent(client, auth_headers, tmp_path):
+    project_dir = tmp_path / "bad_agent_proj"
+    project_dir.mkdir()
+    res = await client.post(
+        "/api/projects",
+        json={"path": str(project_dir), "agent": "foobar"},
+        headers=auth_headers,
+    )
+    assert res.status_code == 400
 
 
 async def test_create_project_bad_path(client, auth_headers):
@@ -217,6 +243,7 @@ async def test_list_projects(client, auth_headers, tmp_path):
     assert res.status_code == 200
     data = res.json()
     assert len(data) == 1
+    assert data[0]["agent"] == "claude"
     assert data[0]["has_session"] is False
 
 
@@ -239,6 +266,60 @@ async def test_delete_project(client, auth_headers, tmp_path):
 async def test_delete_nonexistent_project(client, auth_headers):
     res = await client.delete("/api/projects/nonexistent", headers=auth_headers)
     assert res.status_code == 404
+
+
+async def test_start_session_uses_project_agent(client, auth_headers, tmp_path, monkeypatch):
+    project_dir = tmp_path / "codex_proj"
+    project_dir.mkdir()
+    create_res = await client.post(
+        "/api/projects",
+        json={"name": "Codex", "path": str(project_dir), "agent": "codex"},
+        headers=auth_headers,
+    )
+    project_id = create_res.json()["id"]
+
+    captured: dict[str, str] = {}
+
+    async def fake_create_session(project_id: str, directory: str, agent: str):
+        captured["project_id"] = project_id
+        captured["directory"] = directory
+        captured["agent"] = agent
+        return "sid_codex"
+
+    monkeypatch.setattr(api_module, "create_session", fake_create_session)
+
+    res = await client.post(
+        f"/api/projects/{project_id}/session",
+        headers=auth_headers,
+    )
+    assert res.status_code == 200
+    assert res.json()["session_id"] == "sid_codex"
+    assert captured["agent"] == "codex"
+
+
+async def test_start_session_returns_400_for_missing_cli(
+    client, auth_headers, tmp_path, monkeypatch
+):
+    project_dir = tmp_path / "missing_cli_proj"
+    project_dir.mkdir()
+    create_res = await client.post(
+        "/api/projects",
+        json={"name": "NoCLI", "path": str(project_dir), "agent": "codex"},
+        headers=auth_headers,
+    )
+    project_id = create_res.json()["id"]
+
+    async def fake_create_session(project_id: str, directory: str, agent: str):
+        raise RuntimeError("codex CLI not found in PATH")
+
+    monkeypatch.setattr(api_module, "create_session", fake_create_session)
+
+    res = await client.post(
+        f"/api/projects/{project_id}/session",
+        headers=auth_headers,
+    )
+    assert res.status_code == 400
+    assert "codex CLI not found" in res.json()["detail"]
 
 
 # --- Settings ---
