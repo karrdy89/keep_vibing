@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
+from backend.agents import DEFAULT_AGENT, is_supported_agent, normalize_agent
 from backend.auth import authenticate, change_password, create_token, get_current_user
 from backend.session_manager import (
     create_session,
@@ -68,6 +69,7 @@ async def api_change_password(
 class ProjectRequest(BaseModel):
     name: str | None = None
     path: str
+    agent: str = DEFAULT_AGENT
 
 
 @router.post("/projects")
@@ -78,7 +80,10 @@ async def api_create_project(
     if not os.path.isdir(path):
         raise HTTPException(status_code=400, detail=f"Directory not found: {path}")
     name = req.name or os.path.basename(path)
-    return create_project(name, path)
+    agent = normalize_agent(req.agent)
+    if not is_supported_agent(agent):
+        raise HTTPException(status_code=400, detail=f"Unsupported agent: {req.agent}")
+    return create_project(name, path, agent)
 
 
 @router.get("/projects")
@@ -113,7 +118,14 @@ async def api_start_session(
         raise HTTPException(status_code=404, detail="Project not found")
     if not os.path.isdir(project["path"]):
         raise HTTPException(status_code=400, detail=f"Directory not found: {project['path']}")
-    session_id = await create_session(project_id, project["path"])
+    try:
+        session_id = await create_session(
+            project_id,
+            project["path"],
+            project.get("agent", DEFAULT_AGENT),
+        )
+    except RuntimeError as e:
+        raise HTTPException(status_code=400, detail=str(e))
     return {"session_id": session_id, "project_id": project_id}
 
 
@@ -129,7 +141,12 @@ async def api_stop_session(project_id: str, _user: dict = Depends(get_current_us
 @router.get("/sessions")
 async def api_list_sessions(_user: dict = Depends(get_current_user)) -> list[dict]:
     return [
-        {"session_id": s.session_id, "project_id": s.project_id, "directory": s.directory}
+        {
+            "session_id": s.session_id,
+            "project_id": s.project_id,
+            "directory": s.directory,
+            "agent": s.agent,
+        }
         for s in sessions.values()
         if s.is_alive
     ]

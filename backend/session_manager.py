@@ -5,6 +5,14 @@ import uuid
 from dataclasses import dataclass, field
 from threading import Thread
 
+from backend.agents import (
+    AGENT_ARGS,
+    AGENT_COMMANDS,
+    AGENT_INSTALL_HINTS,
+    DEFAULT_AGENT,
+    is_supported_agent,
+    normalize_agent,
+)
 from backend.pty_wrapper import PtyWrapper
 
 OUTPUT_BUFFER_MAX = 100 * 1024  # 100KB
@@ -16,6 +24,7 @@ class Session:
     project_id: str
     directory: str
     pty_process: PtyWrapper
+    agent: str = DEFAULT_AGENT
     output_buffer: list[str] = field(default_factory=list)
     output_buffer_size: int = 0
     output_queues: list[asyncio.Queue] = field(default_factory=list)
@@ -27,13 +36,18 @@ class Session:
 sessions: dict[str, Session] = {}
 
 
-def _find_claude_cli() -> str:
-    path = shutil.which("claude")
+def _resolve_agent_process(agent: str) -> tuple[str, list[str]]:
+    normalized = normalize_agent(agent)
+    if not is_supported_agent(normalized):
+        raise RuntimeError(f"Unsupported agent: {agent}")
+    command = AGENT_COMMANDS[normalized]
+    path = shutil.which(command)
     if not path:
         raise RuntimeError(
-            "claude CLI not found in PATH. Install it first: https://claude.ai/code"
+            f"{normalized} CLI not found in PATH. Install it first: "
+            f"{AGENT_INSTALL_HINTS[normalized]}"
         )
-    return path
+    return path, list(AGENT_ARGS.get(normalized, []))
 
 
 def _broadcast(session: Session, data, loop: asyncio.AbstractEventLoop):
@@ -106,21 +120,32 @@ def get_session_by_project(project_id: str) -> Session | None:
     return None
 
 
-async def create_session(project_id: str, directory: str) -> str:
+async def create_session(
+    project_id: str,
+    directory: str,
+    agent: str = DEFAULT_AGENT,
+) -> str:
     existing = get_session_by_project(project_id)
     if existing:
         return existing.session_id
 
-    claude_path = _find_claude_cli()
+    normalized_agent = normalize_agent(agent)
+    cli_path, cli_args = _resolve_agent_process(normalized_agent)
     session_id = uuid.uuid4().hex[:12]
 
-    pty = PtyWrapper.spawn(claude_path, cwd=directory, dimensions=(24, 120))
+    pty = PtyWrapper.spawn(
+        cli_path,
+        args=cli_args,
+        cwd=directory,
+        dimensions=(24, 120),
+    )
 
     session = Session(
         session_id=session_id,
         project_id=project_id,
         directory=directory,
         pty_process=pty,
+        agent=normalized_agent,
     )
 
     loop = asyncio.get_running_loop()

@@ -3,6 +3,8 @@ import os
 import secrets
 from pathlib import Path
 
+from backend.agents import DEFAULT_AGENT, is_supported_agent, normalize_agent
+
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 PROJECTS_FILE = DATA_DIR / "projects.json"
 SETTINGS_FILE = DATA_DIR / "settings.json"
@@ -23,8 +25,24 @@ def _write_json(path: Path, data: dict | list):
     path.write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
+def _normalize_project(project: dict) -> dict:
+    normalized = dict(project)
+    agent = normalize_agent(normalized.get("agent"))
+    if not is_supported_agent(agent):
+        agent = DEFAULT_AGENT
+    normalized["agent"] = agent
+    return normalized
+
+
 def load_projects() -> list[dict]:
-    return _read_json(PROJECTS_FILE)
+    raw = _read_json(PROJECTS_FILE)
+    if not isinstance(raw, list):
+        return []
+    projects = [_normalize_project(p) for p in raw]
+    # Lazy migration for old data format without "agent".
+    if projects != raw:
+        _write_json(PROJECTS_FILE, projects)
+    return projects
 
 
 def get_project(project_id: str) -> dict | None:
@@ -34,16 +52,23 @@ def get_project(project_id: str) -> dict | None:
     return None
 
 
-def create_project(name: str, path: str) -> dict:
+def create_project(name: str, path: str, agent: str = DEFAULT_AGENT) -> dict:
     projects = load_projects()
     normalized = os.path.normpath(path)
+    normalized_agent = normalize_agent(agent)
+    if not is_supported_agent(normalized_agent):
+        raise ValueError(f"Unsupported agent: {agent}")
     for p in projects:
-        if os.path.normpath(p["path"]) == normalized:
+        if (
+            os.path.normpath(p["path"]) == normalized
+            and p.get("agent", DEFAULT_AGENT) == normalized_agent
+        ):
             return p
     project = {
         "id": f"proj_{secrets.token_hex(4)}",
         "name": name,
         "path": normalized,
+        "agent": normalized_agent,
     }
     projects.append(project)
     _write_json(PROJECTS_FILE, projects)

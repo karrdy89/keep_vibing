@@ -1,7 +1,10 @@
+export type AgentType = "claude" | "codex";
+
 export interface Project {
   id: string;
   name: string;
   path: string;
+  agent: AgentType;
   has_session: boolean;
   session_id: string | null;
 }
@@ -58,10 +61,10 @@ export const api = {
 
   listProjects: () => request<Project[]>("/api/projects"),
 
-  createProject: (path: string) =>
+  createProject: (path: string, agent: AgentType = "claude") =>
     request<Project>("/api/projects", {
       method: "POST",
-      body: JSON.stringify({ path }),
+      body: JSON.stringify({ path, agent }),
     }),
 
   deleteProject: (id: string) =>

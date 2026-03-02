@@ -264,6 +264,16 @@ body {
   white-space: nowrap;
 }
 
+.project-agent {
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--fg-secondary);
+  background: var(--bg-base);
+  flex-shrink: 0;
+}
+
 .project-actions {
   display: flex;
   gap: 2px;

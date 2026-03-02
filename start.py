@@ -36,13 +36,22 @@ if __name__ == "__main__":
             cwd=ROOT,
         )
     )
-    procs.append(
-        subprocess.Popen(
-            ["npm", "run", "dev"],
-            cwd=FRONTEND_DIR,
-            shell=True,
+    if os.name == "nt":
+        # On Windows, npm is usually resolved via shell (npm.cmd).
+        procs.append(
+            subprocess.Popen(
+                "npm run dev",
+                cwd=FRONTEND_DIR,
+                shell=True,
+            )
         )
-    )
+    else:
+        procs.append(
+            subprocess.Popen(
+                ["npm", "run", "dev"],
+                cwd=FRONTEND_DIR,
+            )
+        )
 
     try:
         while True:

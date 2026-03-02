@@ -207,7 +207,7 @@ function App() {
   const terminalElement = (
     <>
       {sessionId && activeProject && (
-        <SessionHeader projectName={activeProject.name} />
+        <SessionHeader projectName={activeProject.name} agent={activeProject.agent} />
       )}
       {projects
         .filter((p) => p.session_id)

@@ -1,4 +1,5 @@
 import os
+import subprocess
 import sys
 
 
@@ -14,15 +15,27 @@ class PtyWrapper:
         self._is_windows = sys.platform == "win32"
 
     @classmethod
-    def spawn(cls, command: str, *, cwd: str | None = None, dimensions: tuple[int, int] = (24, 120)):
+    def spawn(
+        cls,
+        command: str,
+        *,
+        args: list[str] | None = None,
+        cwd: str | None = None,
+        dimensions: tuple[int, int] = (24, 120),
+    ):
+        argv = [command, *(args or [])]
         if sys.platform == "win32":
             from winpty import PtyProcess
 
-            proc = PtyProcess.spawn(command, cwd=cwd, dimensions=dimensions)
+            proc = PtyProcess.spawn(
+                subprocess.list2cmdline(argv),
+                cwd=cwd,
+                dimensions=dimensions,
+            )
         else:
             import pexpect
 
-            proc = pexpect.spawn(command, cwd=cwd, encoding=None)
+            proc = pexpect.spawn(command, args=args or [], cwd=cwd, encoding=None)
             proc.setwinsize(*dimensions)
 
         return cls(proc)

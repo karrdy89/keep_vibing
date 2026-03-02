@@ -23,7 +23,7 @@ A lightweight server that lets you access your local workstation's Claude Code e
 - **Project Management** — Add/remove directory-based projects
 - **File Explorer** — Tree view with create, delete, rename, copy/cut/paste via context menu
 - **Code Editor** — Monaco Editor with tab management, syntax highlighting, Markdown/image viewer
-- **Claude Code Terminal** — Runs claude CLI as a subprocess, pipes stdin/stdout over WebSocket with real-time PTY resize
+- **Multi-Agent Terminal** — Runs `claude` or `codex` CLI as a subprocess, pipes stdin/stdout over WebSocket with real-time PTY resize
 - **Seamless Cross-Device Session** — Active Claude Code sessions are shared across all devices in real-time. Switch from PC to mobile without losing any context; terminal history and state are fully preserved with multi-client support
 - **Multi-Project Workflow** — Manage multiple directory-based projects and switch between them instantly. Each project maintains its own independent Claude Code session
 - **Mobile Support** — Responsive layout for smartphones and tablets with touch-optimized controls
@@ -36,7 +36,10 @@ A lightweight server that lets you access your local workstation's Claude Code e
 - Python 3.13+
 - Node.js 18+
 - [uv](https://docs.astral.sh/uv/)
-- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code)
+- [Claude Code CLI](https://docs.anthropic.com/en/docs/claude-code) and/or [Codex CLI](https://platform.openai.com/docs/codex)
+
+> `codex` sessions are launched with a compatibility override (`model_reasoning_effort="high"`)
+> to avoid startup failures from unsupported global config values.
 
 **Supported platforms**: Windows, macOS, Linux
 
